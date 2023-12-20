@@ -7,6 +7,8 @@
 #include <QDateTime>
 #include <QTime>
 #include <QVector>
+#include <QDesktopServices>
+#include <QUrl>
 //-----------------------------------------------------------------------------------------------------------------------------------
 
 // -i=E:/temperature.csv || --in=E:/temperature.csv
@@ -66,6 +68,11 @@ void foundTime(const QString& pathIn, int& countOn, int& countOff, int& countTim
 
     strs_split.removeAll("");
 
+    QString status;
+
+    int timeWork = 0;
+    int time_Now = 0;
+
 //  info == 04.12.2023 00:05:46;ON;
     for(QString& str : strs_split)
     {
@@ -75,24 +82,25 @@ void foundTime(const QString& pathIn, int& countOn, int& countOff, int& countTim
         // ON
         //
         const QString& dateTime = str_split[0];
-        const QString& status   = str_split[1];
+        status                  = str_split[1];
 
         QStringList dateTime_split = dateTime.split(' ');
         QString     time           = dateTime_split[1];
         QTime       timeNow        = QTime::fromString(time, "hh:mm:ss");
 
-        int time_Now = timeNow.msecsSinceStartOfDay();
+        time_Now = timeNow.msecsSinceStartOfDay();
 
 //        if(status == "ON ")
         if(status.contains("on", Qt::CaseInsensitive)) // поиск подстроки без учета регистра
         {
             if(timePrev == 0)
             {
-                timePrev = time_Now;
+                timePrev     = time_Now - QTime(0, 0, 0).msecsSinceStartOfDay();
+                countTimeOff = time_Now - QTime(0, 0, 0).msecsSinceStartOfDay();
             }
             else
             {
-                int timeWork = -(timePrev - time_Now);
+                timeWork = -(timePrev - time_Now);
 
                 QString timeWorkStr = QTime::fromMSecsSinceStartOfDay(timeWork).toString("hh:mm:ss");
 
@@ -109,11 +117,12 @@ void foundTime(const QString& pathIn, int& countOn, int& countOff, int& countTim
         {
             if(timePrev == 0)
             {
-                timePrev = time_Now;
+                timePrev    = time_Now - QTime(0, 0, 0).msecsSinceStartOfDay();
+                countTimeOn = time_Now - QTime(0, 0, 0).msecsSinceStartOfDay();
             }
             else
             {
-                int timeWork = -(timePrev - time_Now);
+                timeWork = -(timePrev - time_Now);
 
                 QString timeWorkStr = QTime::fromMSecsSinceStartOfDay(timeWork).toString("hh:mm:ss");
 
@@ -128,9 +137,26 @@ void foundTime(const QString& pathIn, int& countOn, int& countOff, int& countTim
         }
     }
 
-    QString tmpString = "0" ";" + QString::number(countOff);
+    if(status.contains("on", Qt::CaseInsensitive))
+    {
+        timeWork     = QTime(23, 59, 59).msecsSinceStartOfDay() - timePrev;  // 23.59.59 - время последнего переключения
+        countTimeOn += QTime(23, 59, 59).msecsSinceStartOfDay() - timePrev;
 
-    timeQV.append(tmpString); // вылетали за предел вектора, нужно было добавить в последней строке пустую строку где время
+        QString timeWorkStr = QTime::fromMSecsSinceStartOfDay(timeWork).toString("hh:mm:ss");
+        QString tmpString   = timeWorkStr + ";" + QString::number(countOn);
+
+        timeQV.push_back(tmpString);
+    }
+    else if(status.contains("off", Qt::CaseInsensitive))
+    {
+        timeWork      = QTime(23, 59, 59).msecsSinceStartOfDay() - timePrev; // 23.59.59 - время последнего переключения
+        countTimeOff += QTime(23, 59, 59).msecsSinceStartOfDay() - timePrev;
+
+        QString timeWorkStr = QTime::fromMSecsSinceStartOfDay(timeWork).toString("hh:mm:ss");
+        QString tmpString   = timeWorkStr + ";" + QString::number(countOff);
+
+        timeQV.push_back(tmpString);
+    }
 
     fileIn.close();
 }
