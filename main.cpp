@@ -187,14 +187,15 @@ void setPath( int argc, char* argv[], QString& pathIn, QString& pathOut)
 
         if(key == "-o" || key == "--out")
         {
-            pathOut = val;
+                pathOut = val;
         }
     }
 
     if(pathOut.isEmpty())
     {
         QFileInfo fileInfo(pathIn);                         // Инициализация пути файла через конструктор
-        QString   pathDir = fileInfo.path();
+
+        QString pathDir = fileInfo.path();
         QString   fileName(fileInfo.baseName() + "_out");
 
         pathOut = QString("%1%2.csv").arg(pathDir).arg(fileName);
