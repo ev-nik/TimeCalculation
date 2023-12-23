@@ -198,7 +198,7 @@ void setPath( int argc, char* argv[], QString& pathIn, QString& pathOut)
         QString pathDir = fileInfo.path();
         QString   fileName(fileInfo.baseName() + "_out");
 
-        pathOut = QString("%1%2.csv").arg(pathDir).arg(fileName);
+        pathOut = QString("%1/%2.csv").arg(pathDir).arg(fileName);
     }
 }
 //-----------------------------------------------------------------------------------------------------------------------------------
