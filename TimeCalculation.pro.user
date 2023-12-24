@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 9.0.0, 2023-12-24T16:22:18. -->
+<!-- Written by QtCreator 9.0.0, 2023-12-24T22:00:09. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -238,7 +238,7 @@
     <valuelist type="QVariantList" key="PE.EnvironmentAspect.Changes"/>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">Qt4ProjectManager.Qt4RunConfiguration:E:/projects/TimeCalculation/TimeCalculation.pro</value>
     <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">E:/projects/TimeCalculation/TimeCalculation.pro</value>
-    <value type="QString" key="RunConfiguration.Arguments">-h</value>
+    <value type="QString" key="RunConfiguration.Arguments">-i=E:/temperature.csv    -o=E:/temperature_OUT.csv</value>
     <value type="bool" key="RunConfiguration.UseCppDebugger">false</value>
     <value type="bool" key="RunConfiguration.UseCppDebuggerAuto">true</value>
     <value type="bool" key="RunConfiguration.UseLibrarySearchPath">true</value>

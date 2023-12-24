@@ -271,12 +271,17 @@ int main(int argc, char *argv[])
 
     foundTime(pathIn, countOn, countOff, countTimeOn, countTimeOff, timeQV);
 
+    if(QFile::exists(pathOut))  // Проверка существует ли файл по указанному пути
+    {
+        QFile::remove(pathOut); // Если существует - удаляем
+    }
+
     if(fileIn.open(QIODevice::ReadOnly))
     {
         QString     strs = fileIn.readAll();
         QStringList strs_split = strs.split("\r\n");
 
-        strs_split.removeAll("");
+        strs_split.removeAll("");        
 
 //        info == 04.12.2023 00:05:46;ON;
 //        for(QString& str : strs_split)            // Обход по значению
