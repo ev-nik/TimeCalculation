@@ -161,19 +161,55 @@ void foundTime(const QString& pathIn, int& countOn, int& countOff, int& countTim
     fileIn.close();
 }
 //-----------------------------------------------------------------------------------------------------------------------------------
+/*!
+ * \brief printHelp  Справочная информация как запускать программу
+ */
+
+void printHelp()
+{
+    qDebug() << "-i or --in\n"
+             << "Relative or absolute path to input  file.\n"
+             << "Example:\n"
+             << "   -i=D:/data/file.csv\n"
+
+             << "-o or --out\n"
+             << "Relative or absolute path to output  file.\n"
+             << "Example:\n"
+             << "   -o=D:/data/file_result.csv\n"
+             << "Note:\n"
+             << "        if the path to the output file is not passed,\n"
+             << "        the path to the input file will be used\n"
+             << "        and ""out"" will be added to the name of the input file";
+}
+
+
+//-----------------------------------------------------------------------------------------------------------------------------------
 
 /*!
- * \brief setPath   Передать путь к файлам( in/out)
- * \param argc      Колличество аргументов командной строки
- * \param argv      Аргументы командной строки
- * \param pathIn    Путь входного файла
- * \param pathOut   Путь выходного файла
+ * \brief parseArgs  Разбор аргументов командной строки
+ * \param argc       Колличество аргументов командной строки
+ * \param argv       Аргументы командной строки
+ * \param pathIn     Путь входного файла
+ * \param pathOut    Путь выходного файла
+ * \param isHelp     Признак, продолжает программа работать или нет
+ *
+ *
+ * isHelp == true (прекращает работать) если есть аргумент "-h" или "--help", иначе isHelp == false (продолжает работать).
  */
-void setPath( int argc, char* argv[], QString& pathIn, QString& pathOut)
+
+void parseArgs( int argc, char* argv[], QString& pathIn, QString& pathOut, bool& isHelp)
 {
+    isHelp = false;
+
     for(int i = 1; i < argc; i++)
     {
         QString path = argv[i];
+
+        if(path == "-h" || path == "--help")
+        {
+            isHelp = true;
+            return;
+        }
 
         QStringList path_split = path.split('=');
 
@@ -187,7 +223,7 @@ void setPath( int argc, char* argv[], QString& pathIn, QString& pathOut)
 
         if(key == "-o" || key == "--out")
         {
-                pathOut = val;
+            pathOut = val;
         }
     }
 
@@ -196,10 +232,10 @@ void setPath( int argc, char* argv[], QString& pathIn, QString& pathOut)
         QFileInfo fileInfo(pathIn);                         // Инициализация пути файла через конструктор
 
         QString pathDir = fileInfo.path();
-        QString   fileName(fileInfo.baseName() + "_out");
+        QString  fileName(fileInfo.baseName() + "_out");
 
         pathOut = QString("%1/%2.csv").arg(pathDir).arg(fileName);
-    }
+    }  
 }
 //-----------------------------------------------------------------------------------------------------------------------------------
 
@@ -209,15 +245,15 @@ int main(int argc, char *argv[])
 
     QString pathOut;        // путь выходного файла
     QString pathIn;         // путь входного  файла
+    bool isHelp = false;
 
-    int countOn      = 0;   // кол-во включений
-    int countOff     = 0;   // кол-во отключений
-    int countTimeOn  = 0;   // кол-во времени во вкл состоянии (мсек)
-    int countTimeOff = 0;   // кол-во времени во откл состоянии (мсек)
+    parseArgs(argc, argv, pathIn, pathOut, isHelp);
 
-    QVector<QString> timeQV;
-
-    setPath(argc, argv, pathIn, pathOut);
+    if(isHelp)
+    {
+        printHelp();
+        return 0;
+    }
 
     QFile fileIn(pathIn);
     if(!fileIn.exists())
@@ -226,11 +262,18 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    int countOn      = 0;   // кол-во включений
+    int countOff     = 0;   // кол-во отключений
+    int countTimeOn  = 0;   // кол-во времени во вкл состоянии (мсек)
+    int countTimeOff = 0;   // кол-во времени во откл состоянии (мсек)
+
+    QVector<QString> timeQV;
+
     foundTime(pathIn, countOn, countOff, countTimeOn, countTimeOff, timeQV);
 
     if(fileIn.open(QIODevice::ReadOnly))
     {
-        QString strs = fileIn.readAll();
+        QString     strs = fileIn.readAll();
         QStringList strs_split = strs.split("\r\n");
 
         strs_split.removeAll("");
