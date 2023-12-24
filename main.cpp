@@ -297,14 +297,14 @@ int main(int argc, char *argv[])
     QString statusON  = QTime::fromMSecsSinceStartOfDay(countTimeOn). toString("hh:mm:ss");
     QString statusOFF = QTime::fromMSecsSinceStartOfDay(countTimeOff).toString("hh:mm:ss");
 
-    writeInfo(pathOut, ";ON;",  statusON);
-    writeInfo(pathOut, ";OFF;", statusOFF);
+    writeInfo(pathOut, "Total;ON;",  statusON);
+    writeInfo(pathOut, "Total;OFF;", statusOFF);
 
     QString timeOn_countOn   = QTime::fromMSecsSinceStartOfDay(countTimeOn / countOn).  toString("hh:mm:ss");
     QString timeOff_countOff = QTime::fromMSecsSinceStartOfDay(countTimeOff / countOff).toString("hh:mm:ss");
 
-    writeInfo(pathOut, ";medium on state;",  timeOn_countOn);
-    writeInfo(pathOut, ";medium off state;", timeOff_countOff);
+    writeInfo(pathOut, "Medium;ON;",  timeOn_countOn);
+    writeInfo(pathOut, "Medium;OFF;", timeOff_countOff);
 
     return a.exec();
 }
