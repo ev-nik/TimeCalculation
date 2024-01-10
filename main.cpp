@@ -62,20 +62,16 @@ void foundTime(const QString& pathIn, int& countOn, int& countOff, int& countTim
 
     int timePrev = 0;
 
-    QString strs = fileIn.readAll();
-
-    QStringList strs_split = strs.split("\r\n");
-
-    strs_split.removeAll("");
+    QTextStream writeStream(&fileIn);
 
     QString status;
 
     int timeWork = 0;
-    int time_Now = 0;
 
-//  info == 04.12.2023 00:05:46;ON;
-    for(QString& str : strs_split)
+    while(!writeStream.atEnd())
     {
+        QString str = writeStream.readLine();
+
         QStringList str_split = str.split(';');
 
         // 04.12.2023 00:05:46
@@ -88,7 +84,7 @@ void foundTime(const QString& pathIn, int& countOn, int& countOff, int& countTim
         QString     time           = dateTime_split[1];
         QTime       timeNow        = QTime::fromString(time, "hh:mm:ss");
 
-        time_Now = timeNow.msecsSinceStartOfDay();
+        int time_Now = timeNow.msecsSinceStartOfDay();
 
 //        if(status == "ON ")
         if(status.contains("on", Qt::CaseInsensitive)) // поиск подстроки без учета регистра
@@ -164,7 +160,6 @@ void foundTime(const QString& pathIn, int& countOn, int& countOff, int& countTim
 /*!
  * \brief printHelp  Справочная информация как запускать программу
  */
-
 void printHelp()
 {
     qDebug() << "-i or --in\n"
@@ -196,7 +191,6 @@ void printHelp()
  *
  * isHelp == true (прекращает работать) если есть аргумент "-h" или "--help", иначе isHelp == false (продолжает работать).
  */
-
 void parseArgs( int argc, char* argv[], QString& pathIn, QString& pathOut, bool& isHelp)
 {
     isHelp = false;
@@ -281,7 +275,7 @@ int main(int argc, char *argv[])
         QString     strs = fileIn.readAll();
         QStringList strs_split = strs.split("\r\n");
 
-        strs_split.removeAll("");        
+        strs_split.removeAll("");
 
 //        info == 04.12.2023 00:05:46;ON;
 //        for(QString& str : strs_split)            // Обход по значению
@@ -294,16 +288,16 @@ int main(int argc, char *argv[])
         fileIn.close();
     }
 
-    QString statusON  = QTime::fromMSecsSinceStartOfDay(countTimeOn). toString("hh:mm:ss");
+    QString statusON  = QTime::fromMSecsSinceStartOfDay(countTimeOn ).toString("hh:mm:ss");
     QString statusOFF = QTime::fromMSecsSinceStartOfDay(countTimeOff).toString("hh:mm:ss");
 
-    writeInfo(pathOut, "Total;ON;",  statusON);
+    writeInfo(pathOut, "Total;ON;" , statusON );
     writeInfo(pathOut, "Total;OFF;", statusOFF);
 
-    QString timeOn_countOn   = QTime::fromMSecsSinceStartOfDay(countTimeOn / countOn).  toString("hh:mm:ss");
+    QString timeOn_countOn   = QTime::fromMSecsSinceStartOfDay(countTimeOn  / countOn ).toString("hh:mm:ss");
     QString timeOff_countOff = QTime::fromMSecsSinceStartOfDay(countTimeOff / countOff).toString("hh:mm:ss");
 
-    writeInfo(pathOut, "Medium;ON;",  timeOn_countOn);
+    writeInfo(pathOut, "Medium;ON;" , timeOn_countOn  );
     writeInfo(pathOut, "Medium;OFF;", timeOff_countOff);
 
     return a.exec();
