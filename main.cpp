@@ -15,6 +15,69 @@
 // -o=E:/temperature_.csv || --out=E:/temperature_.csv
 //-----------------------------------------------------------------------------------------------------------------------------------
 
+struct Arguments
+{
+public:
+    Arguments();
+    Arguments(int argc, char* argv[]);
+
+    QString pathIn;   ///< Путь входного файла
+    QString pathOut;  ///< Путь выходного файла
+    bool    isHelp;   ///< Признак, продолжает программа работать или нет
+};
+
+Arguments::Arguments()
+{
+    isHelp = false;
+}
+
+/*!
+ * \brief                       Конструктор
+ * \param argc                  Колличество аргументов командной строки
+ * \param argv                  Аргументы командной строки
+ */
+Arguments::Arguments(int argc, char *argv[])
+{
+    isHelp = false;
+
+    for(int i = 1; i < argc; i++)
+    {
+        QString path = argv[i];
+
+        if(path == "-h" || path == "--help")
+        {
+            isHelp = true;
+            return;
+        }
+
+        QStringList path_split = path.split('=');
+
+        QString& key = path_split[0];
+        QString& val = path_split[1];
+
+        if(key == "-i" || key == "--in")
+        {
+            pathIn = val;
+        }
+
+        if(key == "-o" || key == "--out")
+        {
+            pathOut = val;
+        }
+    }
+
+    if(pathOut.isEmpty())
+    {
+        QFileInfo fileInfo(pathIn);                         // Инициализация пути файла через конструктор
+
+        QString pathDir = fileInfo.path();
+        QString  fileName(fileInfo.baseName() + "_out");
+
+        pathOut = QString("%1/%2.csv").arg(pathDir).arg(fileName);
+    }
+}
+
+
 /*!
  * \brief writeInfo              Запись в выходной файл
  * \param path                   Путь к выходному файлу
@@ -180,79 +243,23 @@ void printHelp()
 
 //-----------------------------------------------------------------------------------------------------------------------------------
 
-/*!
- * \brief parseArgs  Разбор аргументов командной строки
- * \param argc       Колличество аргументов командной строки
- * \param argv       Аргументы командной строки
- * \param pathIn     Путь входного файла
- * \param pathOut    Путь выходного файла
- * \param isHelp     Признак, продолжает программа работать или нет
- *
- *
- * isHelp == true (прекращает работать) если есть аргумент "-h" или "--help", иначе isHelp == false (продолжает работать).
- */
-void parseArgs( int argc, char* argv[], QString& pathIn, QString& pathOut, bool& isHelp)
-{
-    isHelp = false;
-
-    for(int i = 1; i < argc; i++)
-    {
-        QString path = argv[i];
-
-        if(path == "-h" || path == "--help")
-        {
-            isHelp = true;
-            return;
-        }
-
-        QStringList path_split = path.split('=');
-
-        QString& key = path_split[0];
-        QString& val = path_split[1];
-
-        if(key == "-i" || key == "--in")
-        {
-            pathIn = val;
-        }
-
-        if(key == "-o" || key == "--out")
-        {
-            pathOut = val;
-        }
-    }
-
-    if(pathOut.isEmpty())
-    {
-        QFileInfo fileInfo(pathIn);                         // Инициализация пути файла через конструктор
-
-        QString pathDir = fileInfo.path();
-        QString  fileName(fileInfo.baseName() + "_out");
-
-        pathOut = QString("%1/%2.csv").arg(pathDir).arg(fileName);
-    }  
-}
-//-----------------------------------------------------------------------------------------------------------------------------------
 
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
 
-    QString pathOut;        // путь выходного файла
-    QString pathIn;         // путь входного  файла
-    bool isHelp = false;
+    Arguments arguments = Arguments(argc, argv);
 
-    parseArgs(argc, argv, pathIn, pathOut, isHelp);
-
-    if(isHelp)
+    if(arguments.isHelp)
     {
         printHelp();
         return 0;
     }
 
-    QFile fileIn(pathIn);
+    QFile fileIn(arguments.pathIn);
     if(!fileIn.exists())
     {
-        qWarning() << Q_FUNC_INFO << "file not exists. PathIn: " << pathIn;
+        qWarning() << Q_FUNC_INFO << "file not exists. PathIn: " << arguments.pathIn;
         return 1;
     }
 
@@ -263,11 +270,11 @@ int main(int argc, char *argv[])
 
     QVector<QString> timeQV;
 
-    foundTime(pathIn, countOn, countOff, countTimeOn, countTimeOff, timeQV);
+    foundTime(arguments.pathIn, countOn, countOff, countTimeOn, countTimeOff, timeQV);
 
-    if(QFile::exists(pathOut))  // Проверка существует ли файл по указанному пути
+    if(QFile::exists(arguments.pathOut))  // Проверка существует ли файл по указанному пути
     {
-        QFile::remove(pathOut); // Если существует - удаляем
+        QFile::remove(arguments.pathOut); // Если существует - удаляем
     }
 
     if(fileIn.open(QIODevice::ReadOnly))
@@ -282,7 +289,7 @@ int main(int argc, char *argv[])
         for(int i = 0; i < strs_split.size(); i++)  // Обход по индексам
         {
             QString str = strs_split[i];            // чтоб не переделывать весь код
-            writeInfo(pathOut, str, timeQV[i]);
+            writeInfo(arguments.pathOut, str, timeQV[i]);
         }
 
         fileIn.close();
@@ -291,14 +298,14 @@ int main(int argc, char *argv[])
     QString statusON  = QTime::fromMSecsSinceStartOfDay(countTimeOn ).toString("hh:mm:ss");
     QString statusOFF = QTime::fromMSecsSinceStartOfDay(countTimeOff).toString("hh:mm:ss");
 
-    writeInfo(pathOut, "Total;ON;" , statusON );
-    writeInfo(pathOut, "Total;OFF;", statusOFF);
+    writeInfo(arguments.pathOut, "Total;ON;" , statusON );
+    writeInfo(arguments.pathOut, "Total;OFF;", statusOFF);
 
     QString timeOn_countOn   = QTime::fromMSecsSinceStartOfDay(countTimeOn  / countOn ).toString("hh:mm:ss");
     QString timeOff_countOff = QTime::fromMSecsSinceStartOfDay(countTimeOff / countOff).toString("hh:mm:ss");
 
-    writeInfo(pathOut, "Medium;ON;" , timeOn_countOn  );
-    writeInfo(pathOut, "Medium;OFF;", timeOff_countOff);
+    writeInfo(arguments.pathOut, "Medium;ON;" , timeOn_countOn  );
+    writeInfo(arguments.pathOut, "Medium;OFF;", timeOff_countOff);
 
     return a.exec();
 }
