@@ -1,225 +1,79 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QFile>
-#include <QFileInfo>
-#include <QString>
-#include <QStringList>
-#include <QDateTime>
 #include <QTime>
 #include <QVector>
-#include <QDesktopServices>
-#include <QUrl>
+//-----------------------------------------------------------------------------------------------------------------------------------
+
+#include "Arguments.h"
+#include "TimeWork.h"
 //-----------------------------------------------------------------------------------------------------------------------------------
 
 // -i=E:/temperature.csv || --in=E:/temperature.csv
 // -o=E:/temperature_.csv || --out=E:/temperature_.csv
 //-----------------------------------------------------------------------------------------------------------------------------------
 
-struct Arguments
+enum
 {
-public:
-    Arguments();
-    Arguments(int argc, char* argv[]);
-
-    QString pathIn;   ///< Путь входного файла
-    QString pathOut;  ///< Путь выходного файла
-    bool    isHelp;   ///< Признак, продолжает программа работать или нет
+    DT     = 0,
+    STATUS = 1
 };
 
-Arguments::Arguments()
+void saveToFile(Arguments& arguments, QVector<TimeWorkOnOff>& timeWorkOnOff, int& countTimeOnMSec, int& countTimeOffMSec)
 {
-    isHelp = false;
-}
+    QFile fileOut(arguments.pathOut);
 
-/*!
- * \brief                       Конструктор
- * \param argc                  Колличество аргументов командной строки
- * \param argv                  Аргументы командной строки
- */
-Arguments::Arguments(int argc, char *argv[])
-{
-    isHelp = false;
-
-    for(int i = 1; i < argc; i++)
+    if(QFile:: exists(arguments.pathOut))
     {
-        QString path = argv[i];
+        QFile::remove(arguments.pathOut);
+    }
 
-        if(path == "-h" || path == "--help")
+    if(!fileOut.open(QIODevice :: Append))
         {
-            isHelp = true;
+        qWarning() << Q_FUNC_INFO << arguments.pathOut << "not open";
             return;
         }
 
-        QStringList path_split = path.split('=');
-
-        QString& key = path_split[0];
-        QString& val = path_split[1];
-
-        if(key == "-i" || key == "--in")
-        {
-            pathIn = val;
-        }
-
-        if(key == "-o" || key == "--out")
-        {
-            pathOut = val;
-        }
-    }
-
-    if(pathOut.isEmpty())
-    {
-        QFileInfo fileInfo(pathIn);                         // Инициализация пути файла через конструктор
-
-        QString pathDir = fileInfo.path();
-        QString  fileName(fileInfo.baseName() + "_out");
-
-        pathOut = QString("%1/%2.csv").arg(pathDir).arg(fileName);
-    }
-}
-
-
-/*!
- * \brief writeInfo              Запись в выходной файл
- * \param path                   Путь к выходному файлу
- * \param strFileIn              Данные из входного файла
- * \param timeWork_count_on_off  Данные из foundTime() ( время во вкл/откл состоянии; какое вкл/откл по счету )
- */
-void writeInfo(const QString& path, const QString& strFileIn, const QString& timeWork_count_on_off)
-{
-    QFile fileOut;
-    fileOut.setFileName(path);
-
-    if(fileOut.open(QIODevice::Append))
-    {
         QTextStream writeStream(&fileOut);
-
-        writeStream << strFileIn << timeWork_count_on_off << '\n';
-
-        fileOut.close();
-    }
-    else
+    for(TimeWorkOnOff& timeWorkOnOff: timeWorkOnOff)
     {
-        qWarning() << Q_FUNC_INFO << path << "fileOut not open";
+        QString val = timeWorkOnOff.status ? "On" : "Off"; // тернарный оператор (вместо if/else)
+
+        writeStream << timeWorkOnOff.dateTime.toString("dd.MM.yyyy hh:mm:ss") << ";"
+                    << val << ";"
+                    << QTime::fromMSecsSinceStartOfDay(timeWorkOnOff.timeWorkMSec).toString("hh:mm:ss") << ";"
+                    << timeWorkOnOff.countSwitch << ";"
+                    <<'\n';
     }
+
+    writeStream << "Total" << ";" << "On"  << ";" << QTime::fromMSecsSinceStartOfDay(countTimeOnMSec). toString("hh:mm:ss") << ";" << '\n';
+    writeStream << "Total" << ";" << "Off" << ";" << QTime::fromMSecsSinceStartOfDay(countTimeOffMSec).toString("hh:mm:ss") << ";" << '\n';
+
+    int mediumOn;
+    int mediumOff;
+    int sizeVec   = timeWorkOnOff.count();
+    int lastIndex = sizeVec - 1;
+
+    for(int i = lastIndex - 1; i <= lastIndex; i++)
+        {
+        if(timeWorkOnOff[i].status)
+            {
+            mediumOn  = countTimeOnMSec  / timeWorkOnOff[i].countSwitch;
+            }
+
+        if(!timeWorkOnOff[i].status)
+            {
+            mediumOff = countTimeOffMSec / timeWorkOnOff[i].countSwitch;
+            }
+    }
+
+    writeStream << "Medium" << ";" << "On"  << ";" << QTime::fromMSecsSinceStartOfDay(mediumOn). toString("hh:mm:ss") << ";" <<'\n';
+    writeStream << "Medium" << ";" << "Off" << ";" << QTime::fromMSecsSinceStartOfDay(mediumOff).toString("hh:mm:ss") << ";" <<'\n';
+
+    fileOut.close();
 }
 //-----------------------------------------------------------------------------------------------------------------------------------
 
-/*!
- * \brief foundTime     Расчет времени
- * \param pathIn        Путь входного файла
- * \param countOn       Колличество включений
- * \param countOff      Колличество отключений
- * \param countTimeOn   Время во включенном состоянии (мсек)
- * \param countTimeOff  Время в отключенном состоянии (мсек)
- * \param timeQV        QVector хранит время состояний
- */
-void foundTime(const QString& pathIn, int& countOn, int& countOff, int& countTimeOn, int& countTimeOff,  QVector<QString>& timeQV)
-{
-    QFile fileIn(pathIn); // инициализация пути к файлу через конструктор (вместо вызова: fileIn.setFileName(pathIn))
-
-    if(!fileIn.open(QIODevice::ReadOnly))
-    {
-        qWarning() << Q_FUNC_INFO << "file not open. Path: " << pathIn;
-        return;
-    }
-
-    int timePrev = 0;
-
-    QTextStream writeStream(&fileIn);
-
-    QString status;
-
-    int timeWork = 0;
-
-    while(!writeStream.atEnd())
-    {
-        QString str = writeStream.readLine();
-
-        QStringList str_split = str.split(';');
-
-        // 04.12.2023 00:05:46
-        // ON
-        //
-        const QString& dateTime = str_split[0];
-        status                  = str_split[1];
-
-        QStringList dateTime_split = dateTime.split(' ');
-        QString     time           = dateTime_split[1];
-        QTime       timeNow        = QTime::fromString(time, "hh:mm:ss");
-
-        int time_Now = timeNow.msecsSinceStartOfDay();
-
-//        if(status == "ON ")
-        if(status.contains("on", Qt::CaseInsensitive)) // поиск подстроки без учета регистра
-        {
-            if(timePrev == 0)
-            {
-                timePrev     = time_Now - QTime(0, 0, 0).msecsSinceStartOfDay();
-                countTimeOff = time_Now - QTime(0, 0, 0).msecsSinceStartOfDay();
-            }
-            else
-            {
-                timeWork = -(timePrev - time_Now);
-
-                QString timeWorkStr = QTime::fromMSecsSinceStartOfDay(timeWork).toString("hh:mm:ss");
-
-                timePrev      = time_Now;
-                countTimeOff += timeWork;
-                countOn++;
-
-                QString tmpString = timeWorkStr + ";" + QString::number(countOn);
-
-                timeQV.push_back(tmpString);   // пишем в вектор
-            }
-        }
-        else if(status.contains("off", Qt::CaseInsensitive)) // поиск подстроки без учета регистра
-        {
-            if(timePrev == 0)
-            {
-                timePrev    = time_Now - QTime(0, 0, 0).msecsSinceStartOfDay();
-                countTimeOn = time_Now - QTime(0, 0, 0).msecsSinceStartOfDay();
-            }
-            else
-            {
-                timeWork = -(timePrev - time_Now);
-
-                QString timeWorkStr = QTime::fromMSecsSinceStartOfDay(timeWork).toString("hh:mm:ss");
-
-                timePrev     = time_Now;
-                countTimeOn += timeWork;
-                countOff++;
-
-                QString tmpString = timeWorkStr + ";" + QString::number(countOff);
-
-                timeQV.push_back(tmpString);
-            }
-        }
-    }
-
-    if(status.contains("on", Qt::CaseInsensitive))
-    {
-        timeWork     = QTime(23, 59, 59).msecsSinceStartOfDay() - timePrev;  // 23.59.59 - время последнего переключения
-        countTimeOn += QTime(23, 59, 59).msecsSinceStartOfDay() - timePrev;
-
-        QString timeWorkStr = QTime::fromMSecsSinceStartOfDay(timeWork).toString("hh:mm:ss");
-        QString tmpString   = timeWorkStr + ";" + QString::number(countOn);
-
-        timeQV.push_back(tmpString);
-    }
-    else if(status.contains("off", Qt::CaseInsensitive))
-    {
-        timeWork      = QTime(23, 59, 59).msecsSinceStartOfDay() - timePrev; // 23.59.59 - время последнего переключения
-        countTimeOff += QTime(23, 59, 59).msecsSinceStartOfDay() - timePrev;
-
-        QString timeWorkStr = QTime::fromMSecsSinceStartOfDay(timeWork).toString("hh:mm:ss");
-        QString tmpString   = timeWorkStr + ";" + QString::number(countOff);
-
-        timeQV.push_back(tmpString);
-    }
-
-    fileIn.close();
-}
-//-----------------------------------------------------------------------------------------------------------------------------------
 /*!
  * \brief printHelp  Справочная информация как запускать программу
  */
@@ -239,10 +93,7 @@ void printHelp()
              << "        the path to the input file will be used\n"
              << "        and ""out"" will be added to the name of the input file";
 }
-
-
 //-----------------------------------------------------------------------------------------------------------------------------------
-
 
 int main(int argc, char *argv[])
 {
@@ -257,55 +108,96 @@ int main(int argc, char *argv[])
     }
 
     QFile fileIn(arguments.pathIn);
-    if(!fileIn.exists())
+    if(!fileIn.open(QIODevice::ReadOnly))
     {
-        qWarning() << Q_FUNC_INFO << "file not exists. PathIn: " << arguments.pathIn;
-        return 1;
+        qWarning() << Q_FUNC_INFO << "can not open file : " << arguments.pathIn;
+        return 0;
     }
 
-    int countOn      = 0;   // кол-во включений
-    int countOff     = 0;   // кол-во отключений
-    int countTimeOn  = 0;   // кол-во времени во вкл состоянии (мсек)
-    int countTimeOff = 0;   // кол-во времени во откл состоянии (мсек)
+    QVector<TimeWorkOnOff> dateTimeIn;
 
-    QVector<QString> timeQV;
+    QTextStream readStream(&fileIn);
 
-    foundTime(arguments.pathIn, countOn, countOff, countTimeOn, countTimeOff, timeQV);
-
-    if(QFile::exists(arguments.pathOut))  // Проверка существует ли файл по указанному пути
+    while(!readStream.atEnd())
     {
-        QFile::remove(arguments.pathOut); // Если существует - удаляем
+        TimeWorkOnOff tWork;
+
+        QString val = readStream.readLine();
+
+        QStringList split_val = val.split(';');
+
+        tWork.dateTime = QDateTime::fromString(split_val[DT], "dd.MM.yyyy hh:mm:ss");
+
+        if(split_val[STATUS].contains("ON", Qt::CaseInsensitive))
+    {
+            tWork.status = true;
     }
-
-    if(fileIn.open(QIODevice::ReadOnly))
-    {
-        QString     strs = fileIn.readAll();
-        QStringList strs_split = strs.split("\r\n");
-
-        strs_split.removeAll("");
-
-//        info == 04.12.2023 00:05:46;ON;
-//        for(QString& str : strs_split)            // Обход по значению
-        for(int i = 0; i < strs_split.size(); i++)  // Обход по индексам
+        else if(split_val[STATUS].contains("OFF", Qt::CaseSensitive))
         {
-            QString str = strs_split[i];            // чтоб не переделывать весь код
-            writeInfo(arguments.pathOut, str, timeQV[i]);
+            tWork.status = false;
         }
 
-        fileIn.close();
+        dateTimeIn.append(tWork);
     }
 
-    QString statusON  = QTime::fromMSecsSinceStartOfDay(countTimeOn ).toString("hh:mm:ss");
-    QString statusOFF = QTime::fromMSecsSinceStartOfDay(countTimeOff).toString("hh:mm:ss");
+    int countTimeOnMSec  = 0;
+    int countTimeOffMSec = 0;
+    int sizeVec          = dateTimeIn.count();
 
-    writeInfo(arguments.pathOut, "Total;ON;" , statusON );
-    writeInfo(arguments.pathOut, "Total;OFF;", statusOFF);
+    if(dateTimeIn[0].status)
+    {
+        countTimeOffMSec = dateTimeIn[0].dateTime.time().msecsSinceStartOfDay();
+    }
+    else
+    {
+        countTimeOnMSec = dateTimeIn[0].dateTime.time().msecsSinceStartOfDay();
+    }
 
-    QString timeOn_countOn   = QTime::fromMSecsSinceStartOfDay(countTimeOn  / countOn ).toString("hh:mm:ss");
-    QString timeOff_countOff = QTime::fromMSecsSinceStartOfDay(countTimeOff / countOff).toString("hh:mm:ss");
+    dateTimeIn[0].countSwitch++;
 
-    writeInfo(arguments.pathOut, "Medium;ON;" , timeOn_countOn  );
-    writeInfo(arguments.pathOut, "Medium;OFF;", timeOff_countOff);
+    for(int i = 1; i < sizeVec; i++)
+    {
+        TimeWorkOnOff& current = dateTimeIn[i];     //текущее состояние
+        TimeWorkOnOff& prev    = dateTimeIn[i - 1]; // предыдущее состояние
+
+        prev.timeWorkMSec = prev.dateTime.time().msecsTo(current.dateTime.time());
+
+        current.countSwitch++;
+
+        if(current.status)
+        {
+            countTimeOffMSec += prev.timeWorkMSec;
+            if(i > 1)
+        {
+                current.countSwitch = dateTimeIn[i - 2].countSwitch + 1;
+        }
+        }
+        else
+        {
+            countTimeOnMSec += prev.timeWorkMSec;
+
+            if(i > 1)
+            {
+                current.countSwitch = dateTimeIn[i - 2].countSwitch + 1;
+            }
+        }
+    }
+
+    int lastIndex = sizeVec - 1;
+
+    // время работы последнего срабатывания
+    dateTimeIn[ lastIndex ].timeWorkMSec = dateTimeIn [ lastIndex ].dateTime.time().msecsTo(QTime(23, 59, 59));
+
+    if(dateTimeIn[ lastIndex ].status)
+    {
+        countTimeOnMSec += dateTimeIn[ lastIndex ].timeWorkMSec;
+    }
+    else
+    {
+        countTimeOffMSec += dateTimeIn[ lastIndex ].timeWorkMSec;
+    }
+
+    saveToFile(arguments, dateTimeIn, countTimeOnMSec, countTimeOffMSec);
 
     return a.exec();
 }
